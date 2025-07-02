@@ -41,6 +41,10 @@ canvas.height = CANVAS_PIXEL_HEIGHT;
 let currentUserId = null;
 let lastGeoInfo = null;
 
+// --- ズーム機能関連の変数 ---
+let isZoomed = false; // ズーム状態を管理するフラグ
+const zoomLevel = 2; // ズーム倍率 (例: 2倍)
+
 function getCookie(name) {
     const nameEQ = name + "=";
     const ca = document.cookie.split(';');
@@ -101,7 +105,7 @@ socket.on('initialCanvas', (pixels) => {
         drawPixel(pixel.x, pixel.y, pixel.color);
     });
     console.log('Initial canvas loaded.');
-    displayMessage('Click on the canvas to paint a pixel!', 'info');
+    displayMessage('Click on the canvas to paint a pixel! Right-click to zoom.', 'info');
 });
 
 socket.on('paintPixel', (pixel) => {
@@ -119,7 +123,46 @@ socket.on('paintSuccess', (message) => {
     displayMessage(message, 'success');
 });
 
+// --- ズーム機能のための右クリックイベントリスナー追加 ---
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); // デフォルトの右クリックメニューを抑制
+});
+
+canvas.addEventListener('mousedown', (event) => {
+    // 右クリック (button === 2) を検出
+    if (event.button === 2) {
+        event.preventDefault(); // デフォルトのコンテキストメニューを抑制
+
+        if (isZoomed) {
+            // ズームアウト
+            canvas.classList.remove('zoomed');
+            canvas.style.transform = ''; // スケールをリセット
+            canvas.style.transformOrigin = ''; // 原点もリセット
+            displayMessage('Zoom out.', 'info');
+        } else {
+            // ズームイン
+            canvas.style.transformOrigin = 'center center'; // 中心を基準にズーム
+            canvas.classList.add('zoomed');
+            canvas.style.transform = `scale(${zoomLevel})`; // 設定した倍率でズーム
+            displayMessage(`Zoom in (${zoomLevel}x).`, 'info');
+        }
+        isZoomed = !isZoomed; // ズーム状態を切り替え
+    }
+});
+
+
 canvas.addEventListener('click', (event) => {
+    // ズーム中は描画を無効にするか、別の挙動をさせるか検討
+    // 今回はクリックでの描画はズームアウト時にのみ有効とするか、
+    // あるいはズーム中でも描画可能とするか、要件に応じて調整
+
+    // ここでは、ズーム中はクリック描画を許可し、座標変換が適切に行われることを前提とする
+    // もしズーム中に描画を禁止したい場合は、以下のようにガード句を追加:
+    // if (isZoomed) {
+    //     displayMessage('Please zoom out to paint.', 'info');
+    //     return;
+    // }
+
     if (!currentUserId || loggedInUserSpan.textContent.includes('Guest')) {
         displayMessage('Please login or register to paint.', 'error');
         openSettingsModal('login');
@@ -127,9 +170,12 @@ canvas.addEventListener('click', (event) => {
     }
 
     const rect = canvas.getBoundingClientRect();
+    // ズームされている場合でも、event.clientX/Yはブラウザ上のピクセルを正確に取得する
+    // transform: scale は要素を視覚的に拡大するだけで、内部の座標系は変更しない
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
+    // クリックされた位置のグリッド座標を計算
     const bitX = Math.floor(x / BIT_SIZE);
     const bitY = Math.floor(y / BIT_SIZE);
 
