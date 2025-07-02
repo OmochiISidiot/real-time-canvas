@@ -152,32 +152,41 @@ canvas.addEventListener('mousedown', (event) => {
 
 
 canvas.addEventListener('click', (event) => {
-    // ズーム中は描画を無効にするか、別の挙動をさせるか検討
-    // 今回はクリックでの描画はズームアウト時にのみ有効とするか、
-    // あるいはズーム中でも描画可能とするか、要件に応じて調整
-
-    // ここでは、ズーム中はクリック描画を許可し、座標変換が適切に行われることを前提とする
-    // もしズーム中に描画を禁止したい場合は、以下のようにガード句を追加:
-    // if (isZoomed) {
-    //     displayMessage('Please zoom out to paint.', 'info');
-    //     return;
-    // }
-
     if (!currentUserId || loggedInUserSpan.textContent.includes('Guest')) {
         displayMessage('Please login or register to paint.', 'error');
         openSettingsModal('login');
         return;
     }
 
-    const rect = canvas.getBoundingClientRect();
-    // ズームされている場合でも、event.clientX/Yはブラウザ上のピクセルを正確に取得する
-    // transform: scale は要素を視覚的に拡大するだけで、内部の座標系は変更しない
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const rect = canvas.getBoundingClientRect(); // キャンバスの現在のDOM上の情報（ズームで見た目は変わるが、論理的なサイズ）
 
-    // クリックされた位置のグリッド座標を計算
-    const bitX = Math.floor(x / BIT_SIZE);
-    const bitY = Math.floor(y / BIT_SIZE);
+    let logicalX, logicalY;
+
+    if (isZoomed) {
+        // ズームインしている場合、マウス座標を逆算して拡大前の論理的なキャンバス座標に変換
+        // transform-origin が 'center center' であることを前提とする
+        // キャンバスの論理的な中心座標 (DOM上の位置 + 論理的な幅/高さの半分)
+        const canvasLogicalCenterX = rect.left + rect.width / 2;
+        const canvasLogicalCenterY = rect.top + rect.height / 2;
+
+        // マウスのクリック位置とキャンバス論理的中心とのオフセット
+        const offsetX = event.clientX - canvasLogicalCenterX;
+        const offsetY = event.clientY - canvasLogicalCenterY;
+
+        // オフセットをズーム率で割って、拡大前の論理的なマウス位置を計算
+        // これがキャンバスの左上からの論理的な相対座標になる
+        logicalX = (offsetX / zoomLevel) + (rect.width / 2);
+        logicalY = (offsetY / zoomLevel) + (rect.height / 2);
+
+    } else {
+        // ズームインしていない場合 (従来の計算でOK)
+        logicalX = event.clientX - rect.left;
+        logicalY = event.clientY - rect.top;
+    }
+
+    // 論理的なキャンバス座標をグリッド座標に変換
+    const bitX = Math.floor(logicalX / BIT_SIZE);
+    const bitY = Math.floor(logicalY / BIT_SIZE);
 
     const selectedColor = colorPicker.value;
 
