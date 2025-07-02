@@ -1,0 +1,15 @@
+# Node.js modules
+node_modules/
+
+# Environment variables
+.env
+
+# SQLite database file
+*.db
+
+# Docker-related files (optional, if you don't want to include Dockerfile/dockerignore in repo)
+Dockerfile
+.dockerignore
+
+# npm debug logs
+npm-debug.log
